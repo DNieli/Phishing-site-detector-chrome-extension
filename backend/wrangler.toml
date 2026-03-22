@@ -1,0 +1,4 @@
+name = "phishing-site-detector-backend"
+main = "src/worker.ts"
+compatibility_date = "2025-03-10"
+
