@@ -129,6 +129,10 @@ function showPhishingNotification(url: string, score: number) {
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete" && tab.url) {
+
+    // ignore cloudflare worker
+    if (tab.url.includes("dash.cloudflare.com")) return;
+
     try {
       const result = await checkDomainForPhishing(tab.url);
       const stats = result?.data?.attributes?.stats ?? {};
@@ -142,7 +146,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       const finalScore = combineScores(vtScore, openPhishHit);
 
 
-      // add other function TODO
+      // creates popup for user
       if (finalScore >= 3) {
         showPhishingNotification(tab.url, finalScore)
       }

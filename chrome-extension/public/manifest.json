@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Phishing site detector",
   "version": "1.0.1",
-  "description": "Analyses the URL visited and warns the user in case a website is malicious",
+  "description": "Analyses the URLs visited by the user and gives a warning if any of them are potentially malicious.",
   "permissions": [
     "tabs",
     "activeTab",
@@ -10,7 +10,7 @@
     "notifications"
   ],
   "host_permissions": [
-    "https://www.virustotal.com/*",
+    "https://*.workers.dev/*",
     "https://www.openphish.com/*",
     "https://openphish.com/*"
   ],
