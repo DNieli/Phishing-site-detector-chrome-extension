@@ -4,6 +4,7 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 import { resolve } from "path";
 
 export default defineConfig({
+  envPrefix: "VT_",
   plugins: [
     react(),
     viteStaticCopy({

@@ -1,11 +1,29 @@
-import { checkDomainForPhishing } from "../utils/urlChecker";
-
-console.log("BACKGROUND SERVICE WORKER LOADED");
+import { checkDomainForPhishing, type VirusTotalStats } from "../utils/urlChecker";
 
 const OPENPHISH_FEED_URL = "https://openphish.com/feed.txt";
 const OPENPHISH_CACHE_KEY = "openphish_feed";
 const OPENPHISH_TS_KEY = "openphish_ts";
 const OPENPHISH_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+interface PopupVirusTotalState {
+  status: "available" | "pending" | "missing_key" | "quota_limited" | "error";
+  maliciousCount: number;
+  rawStats: VirusTotalStats | null;
+  vtScore: number;
+  message?: string;
+  submitted?: boolean;
+  source: "live" | "cache";
+}
+
+interface PopupPayload {
+  type: "PHISHING_REPORT";
+  url: string;
+  score: number;
+  vt: PopupVirusTotalState;
+  openphish: {
+    hit: boolean;
+  };
+}
 
 // Fetch and update the OpenPhish feed
 async function updateOpenPhishFeed(): Promise<Set<string>> {
@@ -28,10 +46,10 @@ async function updateOpenPhishFeed(): Promise<Set<string>> {
     });
 
     return set;
-  } catch (err) {
-      console.error("Failed to fetch OpenPhish:", err);
-      const cached = await chrome.storage.local.get([OPENPHISH_CACHE_KEY]);
-      return new Set((cached[OPENPHISH_CACHE_KEY] as string[]) || []);
+  } catch (error) {
+    console.error("Failed to fetch OpenPhish:", error);
+    const cached = await chrome.storage.local.get([OPENPHISH_CACHE_KEY]);
+    return new Set((cached[OPENPHISH_CACHE_KEY] as string[]) || []);
   }
 }
 
@@ -56,15 +74,20 @@ async function isInOpenPhish(rawUrl: string): Promise<boolean> {
     const hostname = extractHostname(rawUrl);
 
     if (feed.has(hostname)) {
-      console.warn("OPENPHISH HIT:", hostname);
       return true;
     }
 
-    console.log("OpenPhish clean:", hostname);
-
     return false;
-  } catch (err) {
-    console.error("OpenPhish check failed:", err);
+  } catch {
+    return false;
+  }
+}
+
+function isScannableUrl(rawUrl: string) {
+  try {
+    const url = new URL(rawUrl);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
     return false;
   }
 }
@@ -127,55 +150,49 @@ function showPhishingNotification(url: string, score: number) {
     })
 }
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (_tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete" && tab.url) {
-
-    // ignore cloudflare worker
-    if (tab.url.includes("dash.cloudflare.com")) return;
+    if (!isScannableUrl(tab.url)) return;
 
     try {
       const result = await checkDomainForPhishing(tab.url);
-      const stats = result?.data?.attributes?.stats ?? {};
-      const vtMalicious = stats.malicious ?? 0;
+      const stats = result.stats ?? {};
+      const vtMalicious = result.maliciousCount ?? 0;
       const vtScore = calculateVTScore(stats);
-
-      console.log(`VT malicious count: ${vtMalicious}, VT score: ${vtScore}`);
-
       const openPhishHit = await isInOpenPhish(tab.url);
-      console.log("OpenPhish hit:", openPhishHit);
       const finalScore = combineScores(vtScore, openPhishHit);
+      const displayUrl = deFangUrl(tab.url);
 
-
-      // creates popup for user
       if (finalScore >= 3) {
-        showPhishingNotification(tab.url, finalScore)
+        showPhishingNotification(tab.url, finalScore);
       }
 
-      const payload = {
+      const payload: PopupPayload = {
         type: "PHISHING_REPORT",
-        url: tab.url,
+        url: displayUrl,
         score: finalScore,
         vt: {
-          maliciousCount: vtMalicious,
-          rawStats: stats,
-          vtScore
+          status: result.status,
+          maliciousCount: result.maliciousCount,
+          rawStats: result.stats,
+          vtScore,
+          message: result.message,
+          submitted: result.submitted,
+          source: result.source,
         },
         openphish: {
-          hit: openPhishHit
-        }
+          hit: openPhishHit,
+        },
       };
 
-      // store the last scan in chrome.storage
       await chrome.storage.local.set({
         lastScore: finalScore,
-        lastUrl: deFangUrl(tab.url),
+        lastUrl: displayUrl,
         lastVT: payload.vt,
-        lastOpenPhish: payload.openphish
-      }) 
+        lastOpenPhish: payload.openphish,
+      });
 
       chrome.runtime.sendMessage(payload);
-
-      console.log(`final score is ${finalScore}`);
     } catch (error) {
       console.error("Error checking domain:", error);
     }
