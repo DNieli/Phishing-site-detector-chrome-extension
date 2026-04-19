@@ -10,7 +10,7 @@
     "notifications"
   ],
   "host_permissions": [
-    "https://*.workers.dev/*",
+    "https://www.virustotal.com/*",
     "https://www.openphish.com/*",
     "https://openphish.com/*"
   ],

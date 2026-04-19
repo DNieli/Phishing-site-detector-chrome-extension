@@ -1,94 +1,77 @@
-# Chrome Extension Starter with Vite, React, TypeScript, and Tailwind CSS
-This project is a starter template for building modern Chrome extensions using Vite, React, TypeScript, and Tailwind CSS. It simplifies the setup so you can focus on building your extension's features.
+# Phishing Site Detector Chrome Extension
 
-<div style="display: flex; justify-content: space-around">
-  <img src="https://github.com/user-attachments/assets/b2267b19-1618-4797-8e0e-a241697b92cf" alt="image 1" width="200"/>
-  <img src="https://github.com/user-attachments/assets/eb6304c9-afd7-4bfc-b9ce-8099531a66d9" alt="image 2" width="200"/>
-  <img src="https://github.com/user-attachments/assets/7808d29d-d1ca-4287-b82b-183ad7b6510a" alt="image 3" width="200"/>
-  <img src="https://github.com/user-attachments/assets/c2f328e2-f7d6-4e6d-a3ec-8e750625e0f8" alt="image 4" width="200"/>
-</div>
+A Chrome extension that checks visited URLs for phishing risk using:
 
-## View tutorial on YouTube
- <a href="https://www.youtube.com/watch?v=jwDErziR1nE">
-    <img src="http://i.ytimg.com/vi/jwDErziR1nE/hqdefault.jpg" alt="YouTube video" width="200"/>
-  </a>
+- OpenPhish for feed-based phishing hits
+- VirusTotal for URL reputation and scanner verdicts
 
-## Features
-- **Fast reloading** develop UI faster, view the popup and options page
-- **Vite** for fast bundling and development
-- **React** for building interactive UI components
-- **TypeScript** for type-safe JavaScript development
-- **Tailwind CSS** for easy and responsive styling
-- **chrome-types** Chrome's API TS files for auto-completion 
+The extension now runs locally without a hosted backend. Each user builds their own unpacked extension with their own local VirusTotal API key.
 
-## Installation
+## Local Setup
 
-### Clone this repository:
-```
-git clone https://github.com/omribarmats/chrome-extension-starter.git new-project
-```
-* Replace `new-project` with your project name
+### Prerequisites
 
-### Open the new directory:
-```
-cd new-project
-```
-### Install dependencies:
-```
+- Node.js 18+
+- npm
+- Google Chrome
+- A VirusTotal API key
+
+### Install
+
+1. Clone the repository.
+2. Install dependencies:
+
+```bash
 npm install
 ```
-### Start the development server:
+
+3. Create a local env file from the example:
+
+```bash
+copy .env.example .env
 ```
-npm run dev
+
+4. Add your VirusTotal API key to `.env`:
+
+```env
+VT_API_KEY=your_virustotal_api_key
 ```
-## Load the Extension
 
-1. Run the build command: `npm run build.`
-2. Go to `chrome://extensions/` in your Chrome browser.
-3. Enable `Developer mode`.
-4. Click `Load unpacked` and select the `dist` folder from the project.
+5. Build the extension:
 
-## Development
-- Hot-reload enabled for easier development.
-- Modify your code in the src folder.
-- Tailwind CSS is already configured and ready to use.
-- Run `nmp run build` to implement changes to `dist` folder
-- Go on `chrome://extensions/` and click refresh `⟳`
-
-### How to change the popup? 
-- Go on `src/chrome-extension/popup/index.tsx`
-- Once changes are made open the terminal and run `nmp run build` then visit `chrome://extensions/` and click the refresh `⟳` button on your extension
-
-### How to change the options page? 
-- Go on `src/chrome-extension/options/index.tsx`
-- Once changes are made open the terminal and run `nmp run build` then visit `chrome://extensions/` and click the refresh `⟳` button on your extension
-
-- ### How to add a background script? 
-- Create a `background.ts` file inside the `src` folder
-- Go on `vite.config.ts` and add this line `background: resolve(__dirname, "src/background.ts"),` under `build.rollupOptions.input`
-- For example 
+```bash
+npm run build
 ```
- build: {
-    rollupOptions: {
-      input: {
-        popup: resolve(__dirname, "popup.html"),
-        options: resolve(__dirname, "options.html"),
-        background: resolve(__dirname, "src/background.ts"),
-      },
-      output: {
-        entryFileNames: "[name].js",
-      },
-    },
-  },
-```
-- Go on `manifest.json` and add this code:
-```
-  "background": {
-    "service_worker": "background.js",
-    "type": "module"
-  }
-``` 
-- Open the terminal and run `nmp run build` then visit `chrome://extensions/` and click the refresh `⟳` button on your extension
 
-## Contributing
-Feel free to fork the project and make improvements or submit bug reports or issues.
+6. Load the extension in Chrome:
+   - Open `chrome://extensions/`
+   - Enable `Developer mode`
+   - Click `Load unpacked`
+   - Select the `dist` folder
+
+## How It Works
+
+- The background service worker scans completed `http` and `https` tab navigations.
+- OpenPhish data is cached locally in `chrome.storage.local`.
+- VirusTotal lookups are requested directly from the extension using the local API key.
+- VirusTotal results are cached locally by URL identifier to reduce repeated API calls and avoid burning through the public quota too quickly.
+- If VirusTotal is unavailable, the extension still falls back to OpenPhish and surfaces the partial-status message in the popup.
+
+## Environment Variables
+
+### Supported
+
+```env
+VT_API_KEY=
+```
+
+## Development Notes
+
+- Main extension logic lives in [chrome-extension/src/background/index.ts](./chrome-extension/src/background/index.ts)
+- VirusTotal integration and caching live in [chrome-extension/src/utils/urlChecker.ts](./chrome-extension/src/utils/urlChecker.ts)
+- The popup UI lives in [chrome-extension/src/popup/index.tsx](./chrome-extension/src/popup/index.tsx)
+
+## Limitations
+
+- VirusTotal public/community API quotas are limited, so repeated browsing can temporarily rate-limit VT checks.
+- This tool is a helpful signal, not a guarantee. Always verify suspicious sites with multiple sources before trusting them.
