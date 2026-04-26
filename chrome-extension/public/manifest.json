@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Phishing site detector",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Analyses the URLs visited by the user and gives a warning if any of them are potentially malicious.",
   "permissions": [
     "tabs",

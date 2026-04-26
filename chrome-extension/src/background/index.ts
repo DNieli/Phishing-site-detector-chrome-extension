@@ -25,6 +25,13 @@ interface PopupPayload {
   };
 }
 
+interface RefreshPhishingReportMessage {
+  type: "REFRESH_PHISHING_REPORT";
+  url: string;
+}
+
+const activeScanUrls = new Set<string>();
+
 // Fetch and update the OpenPhish feed
 async function updateOpenPhishFeed(): Promise<Set<string>> {
   try {
@@ -150,51 +157,67 @@ function showPhishingNotification(url: string, score: number) {
     })
 }
 
+async function scanUrl(rawUrl: string) {
+  if (!isScannableUrl(rawUrl)) return;
+  if (activeScanUrls.has(rawUrl)) return;
+
+  activeScanUrls.add(rawUrl);
+
+  try {
+    const result = await checkDomainForPhishing(rawUrl);
+    const stats = result.stats ?? {};
+    const vtScore = calculateVTScore(stats);
+    const openPhishHit = await isInOpenPhish(rawUrl);
+    const finalScore = combineScores(vtScore, openPhishHit);
+    const displayUrl = deFangUrl(rawUrl);
+
+    if (finalScore >= 3) {
+      showPhishingNotification(rawUrl, finalScore);
+    }
+
+    const payload: PopupPayload = {
+      type: "PHISHING_REPORT",
+      url: displayUrl,
+      score: finalScore,
+      vt: {
+        status: result.status,
+        maliciousCount: result.maliciousCount,
+        rawStats: result.stats,
+        vtScore,
+        message: result.message,
+        submitted: result.submitted,
+        source: result.source,
+      },
+      openphish: {
+        hit: openPhishHit,
+      },
+    };
+
+    await chrome.storage.local.set({
+      lastScore: finalScore,
+      lastUrl: displayUrl,
+      lastVT: payload.vt,
+      lastOpenPhish: payload.openphish,
+    });
+
+    chrome.runtime.sendMessage(payload);
+  } catch (error) {
+    console.error("Error checking domain:", error);
+  } finally {
+    activeScanUrls.delete(rawUrl);
+  }
+}
+
 chrome.tabs.onUpdated.addListener(async (_tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete" && tab.url) {
-    if (!isScannableUrl(tab.url)) return;
-
-    try {
-      const result = await checkDomainForPhishing(tab.url);
-      const stats = result.stats ?? {};
-      const vtMalicious = result.maliciousCount ?? 0;
-      const vtScore = calculateVTScore(stats);
-      const openPhishHit = await isInOpenPhish(tab.url);
-      const finalScore = combineScores(vtScore, openPhishHit);
-      const displayUrl = deFangUrl(tab.url);
-
-      if (finalScore >= 3) {
-        showPhishingNotification(tab.url, finalScore);
-      }
-
-      const payload: PopupPayload = {
-        type: "PHISHING_REPORT",
-        url: displayUrl,
-        score: finalScore,
-        vt: {
-          status: result.status,
-          maliciousCount: result.maliciousCount,
-          rawStats: result.stats,
-          vtScore,
-          message: result.message,
-          submitted: result.submitted,
-          source: result.source,
-        },
-        openphish: {
-          hit: openPhishHit,
-        },
-      };
-
-      await chrome.storage.local.set({
-        lastScore: finalScore,
-        lastUrl: displayUrl,
-        lastVT: payload.vt,
-        lastOpenPhish: payload.openphish,
-      });
-
-      chrome.runtime.sendMessage(payload);
-    } catch (error) {
-      console.error("Error checking domain:", error);
-    }
+    await scanUrl(tab.url);
   }
+});
+
+chrome.runtime.onMessage.addListener((message: RefreshPhishingReportMessage) => {
+  if (message.type !== "REFRESH_PHISHING_REPORT") {
+    return;
+  }
+
+  void scanUrl(message.url);
 });

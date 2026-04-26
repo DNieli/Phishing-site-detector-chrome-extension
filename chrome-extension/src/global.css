@@ -12,3 +12,16 @@ html {
   min-height: 100%;
   position: relative;
 }
+
+body {
+  min-width: 360px;
+  min-height: 440px;
+  background: #061326;
+  color: #e2e8f0;
+  font-family: "Trebuchet MS", "Segoe UI Variable", sans-serif;
+}
+
+#root {
+  min-width: 360px;
+  min-height: 440px;
+}
