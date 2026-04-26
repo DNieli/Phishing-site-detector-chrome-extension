@@ -5,7 +5,7 @@ import "./global.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <div className="bg-sky-200 w-[300px] h-[200px]">
+    <div className="w-[360px] min-h-[440px] bg-[#061326] text-slate-50">
       <Popup />
     </div>
   </StrictMode>
